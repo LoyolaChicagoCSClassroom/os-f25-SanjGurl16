@@ -24,6 +24,7 @@ SDIR = src
 
 OBJS = \
 	kernel_main.o \
+	rprintf.o \
 
 # Make sure to keep a blank line here after OBJS list
 
@@ -39,7 +40,7 @@ $(ODIR)/%.o: $(SDIR)/%.s
 all: bin rootfs.img
 
 bin: obj $(OBJ)
-	$(LD) -melf_i386  obj/* -Tkernel.ld -o kernel
+	$(LD) -melf_i386 obj/* -Tkernel.ld -o kernel
 	$(SIZE) kernel
 
 obj:

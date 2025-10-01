@@ -12,8 +12,6 @@ uint8_t inb (uint16_t _port) {
     return rv;
 }
 
-typedef int (*func_ptr)(int);
-
 struct termbuf {
    char ascii;
    char color;
