@@ -26,7 +26,7 @@ void poll_keyboard() {
     while (1) {
 	if (ps2_has_data()) {
 	    uint8_t scancode = inb(PS2_DATA);
-	    esp_printf(putc, "Scancode: %x\n", scancode);
+	    esp_printf((func_ptr)putc, "Scancode: %x\n", scancode);
 	}
     }
 }
