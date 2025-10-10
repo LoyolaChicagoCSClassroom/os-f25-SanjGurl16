@@ -79,5 +79,6 @@ void main() {
 	esp_printf((func_ptr)putc, "Line %d\n", i + 1);
     }
 
+    poll_keyboard();
     while(1); //Keep kernel running
 }

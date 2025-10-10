@@ -25,6 +25,7 @@ SDIR = src
 OBJS = \
 	kernel_main.o \
 	rprintf.o \
+	poll_keyboard.o \
 
 # Make sure to keep a blank line here after OBJS list
 
