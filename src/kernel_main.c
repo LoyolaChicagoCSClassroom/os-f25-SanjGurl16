@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "rprintf.h" //Provides esp_printf()
-#include "page.h" // Include page allocator
+#include "rprintf.h" // Provides esp_printf()
+#include "page.h" // Page allocator
 
 #define MULTIBOOT2_HEADER_MAGIC         0xe85250d6
 
@@ -70,24 +70,57 @@ unsigned int get_cpl() {
 }
 
 void main() {
-    //Cast 'putc' to the function pointer type expected by esp_printf (func_ptr)
-    esp_printf((func_ptr)putc, "Hello from kernel!\n"); //Print test messages
-    esp_printf((func_ptr)putc, "Current CPL = %d\n", get_cpl()); //Print CPL
+    // Initial test prints
+    esp_printf((func_ptr)putc, "Hello from kernel!\n");
+    esp_printf((func_ptr)putc, "Current CPL = %d\n", get_cpl());
 
-    // Test page allocator
+    // Initialize page allocator
     init_pfa_list();
     esp_printf((func_ptr)putc, "Initialized page frame allocator.\n");
 
-    struct ppage *pages = allocate_physical_pages(3);
-    esp_printf((func_ptr)putc, "Allocated 3 pages starting at %p\n", pages->physical_addr);
+    // Print total free pages before allocation
+    int free_count = 0;
+    struct ppage *curr = free_page_list;
+    while (curr) {
+       free_count++;
+       curr = curr->next;
+    }
+    esp_printf((func_ptr)putc, "Free pages before allocation: %d\n", free_count);
 
-    free_physical_pages(pages);
-    esp_printf((func_ptr)putc, "Freed 3 pages back to free list.\n");
+    // Allocate 3 pages
+    struct ppage *pages = allocate_physical_pages(3);
+    if (pages == 0) {
+       esp_printf((func_ptr)putc, "Page allocation failed!\n");
+    } else {
+       curr = pages;
+       int i = 1;
+       while (curr) {
+	  esp_printf((func_ptr)putc, "Allocated page %d at 0x%x\n", 
+			  i, (unsigned int) (uintptr_t) curr->physical_addr);
+	  curr = curr->next;
+	  i++;
+       }
+
+       // Free pages
+       free_physical_pages(pages);
+       esp_printf((func_ptr)putc, "Freed 3 pages back to free list.\n");
+
+       // Print total free pages after freeing
+       free_count = 0;
+       curr = free_page_list;
+       while (curr) {
+	  free_count++;
+	  curr = curr->next;
+       }
+       esp_printf((func_ptr)putc, "Total free pages now: %d\n", free_count);
+    }
 
     // Test scrolling
+    /*
     for (int i = 0; i < 30; i++) {
 	esp_printf((func_ptr)putc, "Line %d\n", i + 1);
     }
+    */
 
     poll_keyboard();
 
