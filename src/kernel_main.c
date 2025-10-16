@@ -1,6 +1,6 @@
-
 #include <stdint.h>
 #include "rprintf.h" //Provides esp_printf()
+#include "page.h" // Include page allocator
 
 #define MULTIBOOT2_HEADER_MAGIC         0xe85250d6
 
@@ -74,11 +74,22 @@ void main() {
     esp_printf((func_ptr)putc, "Hello from kernel!\n"); //Print test messages
     esp_printf((func_ptr)putc, "Current CPL = %d\n", get_cpl()); //Print CPL
 
-    //Test scrolling by printing multiple lines
+    // Test page allocator
+    init_pfa_list();
+    esp_printf((func_ptr)putc, "Initialized page frame allocator.\n");
+
+    struct ppage *pages = allocate_physical_pages(3);
+    esp_printf((func_ptr)putc, "Allocated 3 pages starting at %p\n", pages->physical_addr);
+
+    free_physical_pages(pages);
+    esp_printf((func_ptr)putc, "Freed 3 pages back to free list.\n");
+
+    // Test scrolling
     for (int i = 0; i < 30; i++) {
 	esp_printf((func_ptr)putc, "Line %d\n", i + 1);
     }
 
     poll_keyboard();
+
     while(1); //Keep kernel running
 }
