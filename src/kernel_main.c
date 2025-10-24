@@ -27,39 +27,38 @@ void putc(int data) {
     struct termbuf *vram = (struct termbuf*)0xB8000;
 
     if (data == '\n') {
-	col = 0;
-	row++;
+		col = 0;
+		row++;
     } else {
-	int index = row * COLS + col;
-	vram[index].ascii = (char)data;
-	vram[index].color = 9; //blue text
-	col++;
-	if (col >= COLS) {
-	    col = 0;
-	    row++;
-	}
+		int index = row * COLS + col;
+		vram[index].ascii = (char)data;
+		vram[index].color = 9; //blue text
+		col++;
+		if (col >= COLS) {
+	    	col = 0;
+	    	row++;
+		}
     }
 
     //Scrolling logic
     if (row >= ROWS) {
-	//Scroll: Copy rows 1-24 up to rows 0-23
-	for (int r = 1; r < ROWS; r++) {
-	    for (int c = 0; c < COLS; c++) {
-		//Move row 'r' content to row 'r-1'
-		vram[(r-1)*COLS + c] = vram[r*COLS + c];
-	    }
-	}
-	//Clear last row (row 24)
-	for (int c = 0; c < COLS; c++) {
-	    vram[(ROWS-1)*COLS + c].ascii = ' ';
-	    vram[(ROWS-1)*COLS + c].color = 7; //gray text
-	}
+		//Scroll: Copy rows 1-24 up to rows 0-23
+		for (int r = 1; r < ROWS; r++) {
+	    	for (int c = 0; c < COLS; c++) {
+			//Move row 'r' content to row 'r-1'
+				vram[(r-1)*COLS + c] = vram[r*COLS + c];
+	    	}
+		}
+		//Clear last row (row 24)
+		for (int c = 0; c < COLS; c++) {
+	    	vram[(ROWS-1)*COLS + c].ascii = ' ';
+	    	vram[(ROWS-1)*COLS + c].color = 7; //gray text
+		}
 
-	//Reset cursor to the start of the last line
-	row = ROWS - 1;
-	col = 0;
+		//Reset cursor to the start of the last line
+		row = ROWS - 1;
+		col = 0;
     }
-
 }
 
 //Get current CPL
@@ -70,6 +69,7 @@ unsigned int get_cpl() {
 }
 
 // ---- GLOBALS ----
+// Ensure these match the bitfield definitions in your page.h
 struct page_directory_entry page_directory[1024] __attribute__((aligned(4096)));
 struct page page_table[1024] __attribute__((aligned(4096)));
 
@@ -154,21 +154,21 @@ void main() {
 
     // Zero page directory entries first (clear any garbage)
     for (int i = 0; i < 1024; i++) {
-	page_directory[i].present = 0;
-	page_directory[i].rw = 0;
-	page_directory[i].user = 0;
-	page_directory[i].writethru = 0;
-	page_directory[i].cachedisabled = 0;
-	page_directory[i].accessed = 0;
-	page_directory[i].pagesize = 0;
-	page_directory[i].ignored = 0;
-	page_directory[i].os_specific = 0;
-	page_directory[i].frame = 0;
+		page_directory[i].present = 0;
+		page_directory[i].rw = 0;
+		page_directory[i].user = 0;
+		page_directory[i].writethru = 0;
+		page_directory[i].cachedisabled = 0;
+		page_directory[i].accessed = 0;
+		page_directory[i].pagesize = 0;
+		page_directory[i].ignored = 0;
+		page_directory[i].os_specific = 0;
+		page_directory[i].frame = 0;
     }
 
     esp_printf((func_ptr)putc, "Preparing identity map...\n");
 
-    // 1) Identity map kernel: 0x100000 -> &_end_kernel
+    // 1) Identity map kernel
     extern uint8_t _end_kernel; // linker symbol (end of kernel)
     uint32_t kernel_start = 0x100000;
     uint32_t kernel_end = (uint32_t)&_end_kernel;
@@ -176,10 +176,10 @@ void main() {
 
     uint32_t kernel_pages = (kernel_end - kernel_start + 0xFFF) / 0x1000;
     for (uint32_t i = 0; i < kernel_pages; i++) {
-	struct ppage tmp;
-	tmp.next = NULL;
-	tmp.physical_addr = (void*)(kernel_start + i * 0x1000);
-	map_pages((void*)(kernel_start + i * 0x1000), &tmp, page_directory);
+		struct ppage tmp;
+		tmp.next = NULL;
+		tmp.physical_addr = (void*)(kernel_start + i * 0x1000);
+		map_pages((void*)(kernel_start + i * 0x1000), &tmp, page_directory);
     }
     esp_printf((func_ptr)putc, "Identity-mapped kernel: 0x%x - 0x%x (%d pages)\n",
 	       kernel_start, kernel_end, (int)kernel_pages);
@@ -190,11 +190,11 @@ void main() {
     uint32_t stack_top = esp_val & ~0xFFF; // align to page
     const int STACK_PAGES = 8; // change if you need more
     for (int p = 0; p < STACK_PAGES; p++) {
-	uint32_t addr = stack_top - p * 0x1000;
-	struct ppage tmp;
-	tmp.next = NULL;
-	tmp.physical_addr = (void*)addr;
-	map_pages((void*)addr, &tmp, page_directory);
+		uint32_t addr = stack_top - p * 0x1000;
+		struct ppage tmp;
+		tmp.next = NULL;
+		tmp.physical_addr = (void*)addr;
+		map_pages((void*)addr, &tmp, page_directory);
     }
     esp_printf((func_ptr)putc, "Identity-mapped %d stack pages around 0x%x\n", STACK_PAGES, stack_top);
 
@@ -224,10 +224,10 @@ void main() {
        curr = pages;
        int i = 1;
        while (curr) {
-	  esp_printf((func_ptr)putc, "Allocated page %d at 0x%x\n", 
-			  i, (unsigned int) (uintptr_t) curr->physical_addr);
-	  curr = curr->next;
-	  i++;
+	  	  esp_printf((func_ptr)putc, "Allocated page %d at 0x%x\n", 
+			  		  i, (unsigned int) (uintptr_t) curr->physical_addr);
+	  	  curr = curr->next;
+	  	  i++;
        }
 
        // Free pages
@@ -238,8 +238,8 @@ void main() {
        free_count = 0;
        curr = free_page_list;
        while (curr) {
-	  free_count++;
-	  curr = curr->next;
+	      free_count++;
+	      curr = curr->next;
        }
        esp_printf((func_ptr)putc, "Total free pages now: %d\n", free_count);
     }
