@@ -69,6 +69,79 @@ unsigned int get_cpl() {
     return cs & 0x3;
 }
 
+// Global page directory and page table - aligned to 4096 bytes
+struct page_directory_entry page_directory[1024] __attribute__((aligned(4096)));
+struct page page_table[1024] __attribute__((aligned(4096)));
+
+// Forward declaration: map_pages prototype matches assignment
+void *map_pages(void *vaddr, struct ppage *pglist, struct page_directory_entry *pd);
+
+// Load CR3 with the physical address of the page directory
+void loadPageDirectory(struct page_directory_entry *pd) {
+    asm volatile("mov %0, %%cr3" : : "r"(pd) : "memory");
+}
+
+// Enable paging by setting CR0.PG (bit 31) and CR0.PE (bit 0)
+// (PE may already be set depending on protected mode init; setting both is fine)
+void enablePaging(void) {
+    asm volatile(
+	"mov %%cr0, %%eax\n"
+	"or $0x80000001, %%eax\n"
+	"mov %%eax, %%cr0\n"
+	:
+	:
+	: "eax", "memory"
+    );
+}
+
+void *map_pages(void *vaddr, struct ppage *pglist, struct page_directory_entry *pd) {
+    struct ppage *curr = pglist;
+    uint32_t curr_vaddr = (uint32_t)vaddr;
+
+    while (curr != NULL) {
+        uint32_t dir_index = (curr_vaddr >> 22) & 0x3FF;
+	uint32_t tbl_index = (curr_vaddr >> 12) & 0x3FF;
+
+	// If the page directory entry isn't present yet, initialize it to point
+	// to our global page_table (frame stores physical>>12).
+	if (!pd[dir_index].present) {
+	    // (Re)use the single global page_table for this PDE.
+	    // Zero the page_table entries once to be safe.
+	    pd[dir_index].frame = ((uint32_t)page_table) >> 12;
+	    pd[dir_index].present = 1;
+	    pd[dir_index].rw = 1; // writable
+	    pd[dir_index].user = 0; // supervisor
+	
+	    // Zero page_table entries (so unused PTEs are not marked present)
+	    for (int i = 0; i < 1024; i++) {
+		page_table[i].present = 0;
+		page_table[i].rw = 0;
+		page_table[i].user = 0;
+		page_table[i].accessed = 0;
+		page_table[i].dirty = 0;
+		page_table[i].unused = 0;
+		page_table[i].frame = 0;
+	    }
+	 }
+
+	 // Get pointer to page table (physical frame shifted back to address)
+	 struct page *pt = (struct page *)(((uint32_t)pd[dir_index].frame) << 12);
+
+	 // Fill in the PTE with the physical frame from curr
+	 pt[tbl_index].frame = ((uint32_t)curr->physical_addr) >> 12;
+	 pt[tbl_index].present = 1;
+	 pt[tbl_index].rw = 1;
+	 pt[tbl_index].user = 0;
+	 // accessed/dirty left clear
+	 
+	 // Advance
+	 curr_vaddr += 0x1000;
+	 curr = curr->next;
+   }
+
+   return vaddr;
+
+
 void main() {
     // Initial test prints
     esp_printf((func_ptr)putc, "Hello from kernel!\n");
@@ -86,6 +159,70 @@ void main() {
        curr = curr->next;
     }
     esp_printf((func_ptr)putc, "Free pages before allocation: %d\n", free_count);
+
+    // Zero page directory entries first (clear any garbage)
+    for (int i = 0; i < 1024; i++) {
+	page_directory[i].present = 0;
+	page_directory[i].rw = 0;
+	page_directory[i].user = 0;
+	page_directory[i].writethru = 0;
+	page_directory[i].cachedisabled = 0;
+	page_directory[i].accessed = 0;
+	page_directory[i].pagesize = 0;
+	page_directory[i].ignored = 0;
+	page_directory[i].os_specific = 0;
+	page_directory[i].frame = 0;
+    }
+
+    esp_printf(((func_ptr)putc, "Preparing identity map...\n");
+
+    // 1) Identity map kernel: 0x100000 -> &_end_kernel
+    extern uint8_t _end_kernel; // linker symbol (end of kernel)
+    uint32_t kernel_start = 0x100000;
+    uint32_t kernel_end = (uint32_t)&_end_kernel;
+    if (kernel_end < kernel_start) kernel_end = kernel_start; // safety
+
+    uint32_t kernel_pages = (kernel_end - kernel_start + 0xFFF) / 0x1000;
+    for (uint32_t i = 0; i < kernel_pages; i++) {
+	struct ppage tmp;
+	tmp.next = NULL;
+	tmp.physical_addr = (void*)(kernel_start + i * 0x1000);
+	map_pages((void*)(kernel_start + i * 0x1000), &tmp, page_directory);
+    }
+    esp_printf((func_ptr)putc, "Identity-mapped kernel: 0x%x - 0x%x (%d pages)\n",
+	       kernel_start, kernel_end, (int)kernel_pages);
+
+    // 2) Identity map stack: map a small number of pages around ESP
+    uint32_t esp_val;
+    asm("mov %%esp, %0" : "=r"(esp_val));
+    uint32_t stack_top = esp_val & ~0xFFF; // align to page
+    const int STACK_PAGES = 8; // change if you need more
+    for (int p = 0; p < STACK_PAGES; p++) {
+	uint32_t addr = stack_top - p * 0x1000;
+	struct ppage tmp;
+	tmp.next = NULL;
+	tmp.physical_addr = (void*)addr;
+	map_pages((void*)addr, &tmp, page_directory);
+    }
+    esp_printf((func_ptr)putc, "Identity-mapped %d stack pages around 0x%x\n", STACK_PAGES, stack_top);
+
+    // 3) Identity map video buffer at 0xB8000
+    struct ppage vtmp;
+    vtmp.next = NULL;
+    vtmp.physical_addr = (void*)0xB8000;
+    map_pages((void*)0xB8000, &vtmp, page_directory);
+    esp_printf((func_ptr)putc, "Identity-mapped video buffer at 0xB8000\n");
+
+    // 4) Load CR3 and enable paging
+    esp_printf((func_ptr)putc, "Loading page directory @ 0x%x\n", (unsigned int)page_directory);
+    loadPageDirectory(page_directory);
+
+    // Memory barrier: ensure CR3 write has taken effect before setting CR0
+    asm volatile("mfence" ::: "memory");
+
+    esp_printf((func_ptr)putc, "Enabling paging now...\n");
+    enablePaging();
+    esp_printf((func_ptr)putc, "Paging enabled.\n");
 
     // Allocate 3 pages
     struct ppage *pages = allocate_physical_pages(3);
