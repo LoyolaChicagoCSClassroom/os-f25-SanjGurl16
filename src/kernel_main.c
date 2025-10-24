@@ -69,20 +69,17 @@ unsigned int get_cpl() {
     return cs & 0x3;
 }
 
-// Global page directory and page table - aligned to 4096 bytes
+// ---- GLOBALS ----
 struct page_directory_entry page_directory[1024] __attribute__((aligned(4096)));
 struct page page_table[1024] __attribute__((aligned(4096)));
 
-// Forward declaration: map_pages prototype matches assignment
+// ---- FUNCTION DECLARATIONS ----
 void *map_pages(void *vaddr, struct ppage *pglist, struct page_directory_entry *pd);
 
-// Load CR3 with the physical address of the page directory
 void loadPageDirectory(struct page_directory_entry *pd) {
     asm volatile("mov %0, %%cr3" : : "r"(pd) : "memory");
 }
 
-// Enable paging by setting CR0.PG (bit 31) and CR0.PE (bit 0)
-// (PE may already be set depending on protected mode init; setting both is fine)
 void enablePaging(void) {
     asm volatile(
 	"mov %%cr0, %%eax\n"
@@ -94,53 +91,48 @@ void enablePaging(void) {
     );
 }
 
+// ---- IMPLEMENTATIONS ----
 void *map_pages(void *vaddr, struct ppage *pglist, struct page_directory_entry *pd) {
     struct ppage *curr = pglist;
     uint32_t curr_vaddr = (uint32_t)vaddr;
 
     while (curr != NULL) {
-        uint32_t dir_index = (curr_vaddr >> 22) & 0x3FF;
-	uint32_t tbl_index = (curr_vaddr >> 12) & 0x3FF;
+    	uint32_t dir_index = (curr_vaddr >> 22) & 0x3FF;
+		uint32_t tbl_index = (curr_vaddr >> 12) & 0x3FF;
 
-	// If the page directory entry isn't present yet, initialize it to point
-	// to our global page_table (frame stores physical>>12).
-	if (!pd[dir_index].present) {
-	    // (Re)use the single global page_table for this PDE.
-	    // Zero the page_table entries once to be safe.
-	    pd[dir_index].frame = ((uint32_t)page_table) >> 12;
-	    pd[dir_index].present = 1;
-	    pd[dir_index].rw = 1; // writable
-	    pd[dir_index].user = 0; // supervisor
+		// If the page directory entry isn't present yet, initialize it
+		if (!pd[dir_index].present) {
+	    	pd[dir_index].frame = ((uint32_t)page_table) >> 12;
+	    	pd[dir_index].present = 1;
+	    	pd[dir_index].rw = 1; 
+	    	pd[dir_index].user = 0;
 	
-	    // Zero page_table entries (so unused PTEs are not marked present)
-	    for (int i = 0; i < 1024; i++) {
-		page_table[i].present = 0;
-		page_table[i].rw = 0;
-		page_table[i].user = 0;
-		page_table[i].accessed = 0;
-		page_table[i].dirty = 0;
-		page_table[i].unused = 0;
-		page_table[i].frame = 0;
-	    }
-	 }
+	    	// Clear all page table entries
+	    	for (int i = 0; i < 1024; i++) {
+				page_table[i].present = 0;
+				page_table[i].rw = 0;
+				page_table[i].user = 0;
+				page_table[i].accessed = 0;
+				page_table[i].dirty = 0;
+				page_table[i].unused = 0;
+				page_table[i].frame = 0;
+	    	}
+	 	}
 
-	 // Get pointer to page table (physical frame shifted back to address)
-	 struct page *pt = (struct page *)(((uint32_t)pd[dir_index].frame) << 12);
+	 	struct page *pt = (struct page *)(((uint32_t)pd[dir_index].frame) << 12);
 
-	 // Fill in the PTE with the physical frame from curr
-	 pt[tbl_index].frame = ((uint32_t)curr->physical_addr) >> 12;
-	 pt[tbl_index].present = 1;
-	 pt[tbl_index].rw = 1;
-	 pt[tbl_index].user = 0;
-	 // accessed/dirty left clear
+	 	// Map this page
+	 	pt[tbl_index].frame = ((uint32_t)curr->physical_addr) >> 12;
+	 	pt[tbl_index].present = 1;
+	 	pt[tbl_index].rw = 1;
+	 	pt[tbl_index].user = 0;
 	 
-	 // Advance
-	 curr_vaddr += 0x1000;
-	 curr = curr->next;
+	 	curr_vaddr += 0x1000;
+	 	curr = curr->next;
    }
 
    return vaddr;
-
+}
 
 void main() {
     // Initial test prints
@@ -174,7 +166,7 @@ void main() {
 	page_directory[i].frame = 0;
     }
 
-    esp_printf(((func_ptr)putc, "Preparing identity map...\n");
+    esp_printf((func_ptr)putc, "Preparing identity map...\n");
 
     // 1) Identity map kernel: 0x100000 -> &_end_kernel
     extern uint8_t _end_kernel; // linker symbol (end of kernel)
