@@ -65,7 +65,8 @@ run:
 	qemu-system-i386 -hda rootfs.img
 
 debug:
-	./launch_qemu.sh
+	screen -S qemu -d -m qemu-system-i386 -S -s -hda rootfs.img -monitor stdio
+	TERM=xterm gdb-multiarch -x gdb_os.txt && killall qemu-system-i386
 
 clean:
 	rm -f grub.img kernel rootfs.img obj/*

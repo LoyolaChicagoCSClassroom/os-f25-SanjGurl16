@@ -7,6 +7,34 @@ struct ppage {
   void *physical_addr;
 };
 
+// Page directory entry for i386
+struct page_directory_entry {
+  unsigned int present : 1;
+  unsigned int rw : 1;
+  unsigned int user : 1;
+  unsigned int writethru : 1;
+  unsigned int cachedisabled : 1;
+  unsigned int accessed : 1;
+  unsigned int reserved : 1;
+  unsigned int pagesize : 1;
+  unsigned int ignored : 1;
+  unsigned int os_specific : 3;
+  unsigned int frame : 20;
+};
+
+// Page table entry for i386
+struct page {
+  unsigned int present : 1;
+  unsigned int rw : 1;
+  unsigned int user : 1;
+  unsigned int writethru : 1;
+  unsigned int cachedisabled : 1;
+  unsigned int accessed : 1;
+  unsigned int dirty : 1;
+  unsigned int unused : 5;
+  unsigned int frame : 20;
+};
+
 // The head of the free list (declared in page.c)
 extern struct ppage *free_page_list;
 
