@@ -65,6 +65,25 @@ void fatInit() {
 struct rde * fatOpen( char *path ) {
   struct rde *rde = (struct rde *)root_directory_region;
 
+  char name[9], ext[4];
+  memset(name, ' ', 8);
+  memset(ext, ' ', 3);
+  name[8] = ext[3] = '\0';
+
+  char *dot = strchr(path, '.');
+  if (dot) {
+      int len = dot - path;
+      if (len > 8) len = 8;
+      strncpy(name, path, len);
+      strncpy(ext, dot + 1, 3);
+  } else {
+      strncpy(name, path, 8);
+  }
+
+  // Convert to uppercase
+  for (int i = 0; i < 8; i++) name[i] = toupper((unsigned char)name[i]);
+  for (int i = 0; i < 3; i++) ext[i] = toupper((unsigned char)ext[i]);
+
   // iterate through the RDE region searching for a file's RDE.
   for(int k = 0; k < 10; k++) {
     printf("File name: \"%s.%s\"\n", rde[k].file_name, rde[k].file_extension);
