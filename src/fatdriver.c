@@ -91,8 +91,8 @@ struct rde * fatOpen( char *path ) {
     printf("File size: %d\n", rde[k].file_size);
 
     // Check for match
-    if (strncmp(rde[k].file_name, "FILE    ", 8) == 0 &&
-	strncmp(rde[k].file_extension, "TXT", 3) == 0) {
+    if (strncmp(rde[k].file_name, name, 8) == 0 &&
+	strncmp(rde[k].file_extension, ext, 3) == 0) {
       return &rde[k];
     } 
   }
@@ -107,10 +107,14 @@ int fatRead(struct rde *rde, char * buf, int n) {
   }
 
   struct boot_sector *bs = (struct boot_sector*)boot_sector;
-  int data_region_start = root_dir_region_start + (bs->num_root_dir_entries * 32 / bs->bytes_per_sector);
+  int data_region_start = root_dir_region_start + (bs->num_root_dir_entries * 32 / bs->bytes_per_sector - 1) / bs->bytes_per_sector;
   int sector = data_region_start + (rde->cluster - 2) * bs->num_sectors_per_cluster;
 
-  sector_read(sector, buf);
+  // Read only the first cluster
+  for (int i = 0; i < bs->num_sectors_per_cluster && (i * bs->bytes_per_sector) < n; i++) {
+      sector_read(sector + i, buf + i * bs->bytes_per_sector);
+  }
+	
   return n;
 
 }
