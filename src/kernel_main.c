@@ -143,6 +143,16 @@ void main() {
     init_pfa_list();
     esp_printf((func_ptr)putc, "Initialized page frame allocator.\n");
 
+    //FAT FILESYSTEM
+    char dataBuf[100];
+
+    driver_init("disk.img");
+    fatInit();
+    struct rde *rde = fatOpen("file.txt");
+    fatRead(rde, dataBuf, sizeof(dataBuf));
+
+    printf("data read from file = %s\n", dataBuf);
+
     // Print total free pages before allocation
     int free_count = 0;
     struct ppage *curr = free_page_list;
