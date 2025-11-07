@@ -115,16 +115,16 @@ int fatRead(struct rde *rde, char * buf, int n) {
 
 }
 
-int main() {
-  struct root_directory_entry *rde = root_directory_region;
-  char dataBuf[100];
+//int main() {
+  //struct root_directory_entry *rde = root_directory_region;
+  //char dataBuf[100];
 
-  driver_init("disk.img");
-  fatInit();
-  struct rde *rde = fatOpen("file.txt");
-  fatRead(rde, dataBuf, sizeof(dataBuf));
+  //driver_init("disk.img");
+  //fatInit();
+  //struct rde *rde = fatOpen("file.txt");
+  //fatRead(rde, dataBuf, sizeof(dataBuf));
 
-  printf("data read from file = %s\n", dataBuf);
+  //printf("data read from file = %s\n", dataBuf);
 
-  return 0;
+  //return 0;
 }
