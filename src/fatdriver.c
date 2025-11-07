@@ -107,15 +107,22 @@ int fatRead(struct rde *rde, char * buf, int n) {
   }
 
   struct boot_sector *bs = (struct boot_sector*)boot_sector;
-  int data_region_start = root_dir_region_start + (bs->num_root_dir_entries * 32 / bs->bytes_per_sector - 1) / bs->bytes_per_sector;
+
+  // Proper data region start calculation	
+  int root_dir_sectors = (bs->num_root_dir_entries * 32 / bs->bytes_per_sector - 1) / bs->bytes_per_sector;
+  int data_region_start = root_dir_region_start + root_dir_sectors;
+
+  // Correct sector offset for file cluster
   int sector = data_region_start + (rde->cluster - 2) * bs->num_sectors_per_cluster;
 
-  // Read only the first cluster
-  for (int i = 0; i < bs->num_sectors_per_cluster && (i * bs->bytes_per_sector) < n; i++) {
+  // Read all sectors in the file's first cluster
+  int total_bytes = 0;
+  for (int i = 0; i < bs->num_sectors_per_cluster && total_bytes < n; i++) {
       sector_read(sector + i, buf + i * bs->bytes_per_sector);
+	  total_bytes += bs->bytes_per_sector;
   }
 	
-  return n;
+  return total_bytes;
 
 }
 
