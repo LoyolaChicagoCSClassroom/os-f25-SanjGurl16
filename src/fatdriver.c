@@ -19,9 +19,8 @@ void sector_read(unsigned int sector_num, char *buf) {
 
 // fatInit()
 void fatInit() {
-  // Read boot sector and RDE region
+  // Read boot sector
   sector_read(2048, boot_sector);
-
   struct boot_sector *bs = (struct boot_sector*)boot_sector;
 
   printf("===== BOOT SECTOR INFO =====\n");
@@ -31,6 +30,10 @@ void fatInit() {
   printf("Number of FAT tables: %d\n", bs->num_fat_tables);
   printf("Sectors per FAT: %d\n", bs->num_sectors_per_fat);
   printf("Root directory entries: %d\n", bs->num_root_dir_entries);
+
+  // Validate boot signature
+  if (bs->boot_signature != 0xAA55) {
+	  printf("WARNING: Invalid boot signature: 0x%X\n", 
 
   // Compute important region starts
   int first_fat_sector = 2048 + bs->num_reserved_sectors;
