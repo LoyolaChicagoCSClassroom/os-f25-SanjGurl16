@@ -33,7 +33,13 @@ void fatInit() {
 
   // Validate boot signature
   if (bs->boot_signature != 0xAA55) {
-	  printf("WARNING: Invalid boot signature: 0x%X\n", 
+	  printf("WARNING: Invalid boot signature: 0x%X\n", bs->boot_signature);
+  }
+
+  // Validate filesystem type
+  if (strncmp(bs->fs_type, "FAT12", 5) != 0 && strncmp(bs->fs_type, "FAT16", 5) != 0) {
+	  printf("WARNING: Unsupported FS type: %.8s\n", bs->fs_type);
+  }
 
   // Compute important region starts
   int first_fat_sector = 2048 + bs->num_reserved_sectors;
@@ -45,11 +51,14 @@ void fatInit() {
   // Read the first FAT table (into memory)
   int fat_table_bytes = bs->num_sectors_per_fat * bs->bytes_per_sector;
   char *fat_table = malloc(fat_table_bytes);
+  if (!fat_table) {
+	  printf("ERROR: Failed to allocate memory for FAT table\n");
+	  return;
+  }
 
   for (int i = 0; i < bs->num_sectors_per_fat; i++) {
       sector_read(first_fat_sector + i, fat_table + (i * bs->bytes_per_sector));
   }
-
   printf("FAT table loaded (%d bytes)\n", fat_table_bytes);
 
   // Read the root directory region
