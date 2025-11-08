@@ -32,7 +32,7 @@ void fatInit() {
   printf("Root directory entries: %d\n", bs->num_root_dir_entries);
 
   // Validate boot signature
-  if (bs->boot_signature != 0xAA55) {
+  if (bs->boot_signature != 0xaa55) {
 	  printf("WARNING: Invalid boot signature: 0x%X\n", bs->boot_signature);
   }
 
