@@ -76,12 +76,12 @@ void fatInit() {
 // Find the RDE for a file given a path
 struct rde * fatOpen( char *path ) {
   struct rde *rde = (struct rde *)root_directory_region;
-
   char name[9], ext[4];
   memset(name, ' ', 8);
   memset(ext, ' ', 3);
   name[8] = ext[3] = '\0';
 
+  // Split path into name and ext
   char *dot = strchr(path, '.');
   if (dot) {
       int len = dot - path;
@@ -97,8 +97,8 @@ struct rde * fatOpen( char *path ) {
   for (int i = 0; i < 3; i++) ext[i] = toupper((unsigned char)ext[i]);
 
   // iterate through the RDE region searching for a file's RDE.
-  for(int k = 0; k < 10; k++) {
-    printf("File name: \"%s.%s\"\n", rde[k].file_name, rde[k].file_extension);
+  for(int k = 0; k < MAX_ROOT_DIR_ENTRIES; k++) {
+    printf("File name: \"%8.8s.%3.3s\"\n", rde[k].file_name, rde[k].file_extension);
     printf("Data cluster: %d\n", rde[k].cluster);
     printf("File size: %d\n", rde[k].file_size);
 
