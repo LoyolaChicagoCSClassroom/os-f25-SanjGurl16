@@ -27,6 +27,8 @@ OBJS = \
 	rprintf.o \
 	poll_keyboard.o \
 	page.o \
+	fatdriver.o \
+	fat.o \
 
 # Make sure to keep a blank line here after OBJS list
 
@@ -36,7 +38,7 @@ $(ODIR)/%.o: $(SDIR)/%.c
 	$(CC) $(CFLAGS) -c -g -o $@ $^
 
 $(ODIR)/%.o: $(SDIR)/%.s
-	$(CC) $(CFLAGS) -c -g -o $@ $^
+	nasm -f elf32 -g -o $@ $^
 
 
 all: bin rootfs.img
